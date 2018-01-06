@@ -1,0 +1,18 @@
+{
+  "$schema": "https://dev.office.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "doc-library-filters-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/docLibraryFilters/DocLibraryFiltersWebPart.js",
+          "manifest": "./src/webparts/docLibraryFilters/DocLibraryFiltersWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "DocLibraryFiltersWebPartStrings": "lib/webparts/docLibraryFilters/loc/{locale}.js"
+  }
+}

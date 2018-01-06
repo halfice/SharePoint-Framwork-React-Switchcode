@@ -1,0 +1,12 @@
+{
+  "$schema": "https://dev.office.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "document-lib-filters-client-side-solution",
+    "id": "ef08144f-b20f-48f8-916c-bda652d90c3c",
+    "version": "1.0.0.0",
+    "skipFeatureDeployment": true
+  },
+  "paths": {
+    "zippedPackage": "solution/document-lib-filters.sppkg"
+  }
+}
