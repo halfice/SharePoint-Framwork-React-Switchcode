@@ -1,0 +1,712 @@
+<html>
+
+<head>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/Jquery2veroins.js" type="text/javascript"></script>
+    <script src="https://arabtec.sharepoint.com/SiteAssets/MPScripts/bootstrap.min.js"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/jquery.SPServices-2014.02.min.js" type="text/javascript"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/BootStrap/es6-promise.js"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/BootStrap/es6-promise.auto.js"></script>
+    <script src="https://arabtec.sharepoint.com/SiteAssets/pnp.js"></script>
+    <script src="https://arabtec.sharepoint.com/SiteAssets/fetch.js"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/BootStrap/jquery.dataTables.min.js"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/BootStrap/dataTables.bootstrap.js"></script>
+    <script src="https://arabtec.sharepoint.com/VDC/SiteAssets/BootStrap/dataTables.responsive.js"></script>
+    <script src="https://cdn.datatables.net/responsive/2.1.1/js/responsive.bootstrap.js"></script>
+    <script>
+
+
+function FilterProjects(ProjectArray, filtertype) {
+        var rowsDone=0;
+            var table = $('#example').DataTable();
+            table.rows().every(function (rowIdx, tableLoop, rowLoop) {
+                var child = this.data()[7];
+                var projectName = this.data()[4];
+                if (ProjectArray.indexOf(projectName) < 0) {
+                    if (filtertype == "Site Technical Managers") {
+                        $(this.node()).addClass('selected');
+                        var row = table.row(rowIdx);
+                        $(row).addClass('.selected');
+                    } else {             
+
+                        if (filtertype == "Discipline Heads" || child != "Discipline Head") {
+                            $(this.node()).addClass('selected');
+                            var row = table.row(rowIdx);
+                            $(row).addClass('.selected');
+                        }
+
+                        if (filtertype == "DocumentsControllers" && child != "Documents Controller") {
+                            $(this.node()).addClass('selected');
+                            var row = table.row(rowIdx);
+                            $(row).addClass('.selected');
+                        }
+                    }
+                }else{
+                    
+
+                }
+            });
+            var rows = table
+                .rows('.selected')
+                .remove()
+                .draw();
+
+        }
+
+
+        var Projects = [];
+        var Results = [];
+        var UserIDs = [];
+        var UserIdsCounter = 0;
+        var ActualUserITem = [];
+        var ShortDec = "";
+        var ShortReq = "";
+        var PendingUserIdsCounter = 0;
+        var Parameters = '';
+        var BodyTablesAll = "";
+        var RFIGroups = [];
+        var GroupCategory = '';
+        UserPending = [];
+        var RFIReferenceNumber = '';
+        var MultipleRole = 0;
+        var UserRoles = [];
+        var BodyTables = "";
+
+        function MakingEmptyPendingTable() {
+            var HeaderTable = '<table id="example" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">  <thead>        <tr>                             <th>RFI #</th>      <th>Created Date</th>        <th>Revision</th>            <th>Version</th>  <th>Project</th> <th>Subject</th> <th>Group Catetory</th> <th>Stage</th>    <th>Status</th>     </tr>    </thead>    <tbody>';
+            var FinalTable = "<td>User is not Assigned to Any Group</td>";
+            FinalTable = HeaderTable + BodyTables + "</tbody></table>"
+            $("#ShowAll").html(FinalTable);
+            $('#example').DataTable({ "pageLength": 50 });
+        }
+        var HeaderTable = '<table id="example" class="table table-striped table-bordered dt-responsive nowrap" cellspacing="0" width="100%">  <thead>        <tr>                             <th>RFI #</th>   <th>Created Date</th>           <th>Revision</th>            <th>Version</th>  <th>Project</th> <th>Subject</th> <th>Group Catetory</th> <th>Stage</th>    <th>Status</th>     </tr>    </thead>    <tbody>';
+        var refreshCounter = 0;
+        $(document).ready(function ($) {
+            GetUsserProfilesofCurentUser();
+            $('select').on('change', function () {
+                var selectedValue = this.selectedOptions[0].value;
+                var selectedText = this.selectedOptions[0].text;
+                if (selectedText != "Select P.r.o.j.e.c.t") {
+                    GetFilterGrid(selectedText);
+                }
+            });
+        });
+
+        function GetUserFromID() {
+            var TempUserId = UserPending[UserIdsCounter].toString();
+            var TmpUserId2 = TempUserId.split('-');
+            var CurrentItemId = TmpUserId2[1];
+            var ItemUserID = TmpUserId2[0]
+            $pnp.sp.web.siteUsers.getById(ItemUserID).get().then(function (result) {
+                result.Title;
+                ActualUserITem.push(result.Title + "-" + CurrentItemId);
+                UserIdsCounter++;
+                if (UserPending.length > UserIdsCounter) {
+                    GetUserFromID();
+                }
+                else {
+                    if (UserPending.length == UserIdsCounter) {
+                        GetGroupList();
+                    }
+                }
+            });
+        }
+        function GetAllRFI() {
+            $pnp.sp.web.lists.getByTitle('RFI').getItemsByCAMLQuery({ ViewXml: '<View><Query> <Where>  <And>          <Eq> <FieldRef Name=\'Skip_x0020_Process\' /> <Value Type=\'Choice\'>No</Value></Eq><Eq>  <FieldRef Name=\'Workflow_x0020_Status\' />   <Value Type=\'Choice\'>Completed</Value> </Eq>             </And>   				</Where></Query></View>' }).then(function (data) {
+                Results = data;
+                for (var i = 0; i < Results.length; i++) {
+                    var ProName = findById(Projects, Results[i].ProjectsId);
+                    var crd = moment(Results[i].Created).format("DD MMMM YY");
+                    var reqdt = moment(Results[i].Required_x0020_By_x0020_Date).format("DD MM YYYY");
+                    var RFINos = parseFloat(Results[i].RFI_x0020__x0023_);
+                    var StatusPending = Results[i].Status;
+                    if (StatusPending != "Closed") { StatusPending = "Pending"; }
+                    RFIReferenceNumber = Results[i].IRFI_x0020_Reference;
+                    if (RFIReferenceNumber == null)
+                        RFIReferenceNumber = "Not Genearated";
+                    Parameters = Results[i].ID + ";" + Results[i].IRFI_x0020_Reference + ";" + Results[i].Status + ";" + Results[i].Stage + ";" + Results[i].Response_x0020_Assign_x0020_ToStringId + ";" + Results[i].Internal_x0020_Responded + ";" + Results[i].Workflow_x0020_Status + ";" + Results[i].Skip_x0020_Process;
+                    if (Results[i].Versions == null) vert = 0;
+                    else vert = Results[i].Versions;
+                    if (Results[i].Response_x0020_Assign_x0020_ToStringId != "" && Results[i].Response_x0020_Assign_x0020_ToStringId != null) {
+                        if (StatusPending != "Closed") {
+                            UserPending.push(Results[i].Response_x0020_Assign_x0020_ToStringId + "-" + Results[i].ID);
+                        }
+                    }
+                }
+                GetGroupList();
+            });//pnp end            
+        }
+        function GetGroupList() {
+            $pnp.sp.web.lists.getByTitle("RFI Groups").items.get().then(function (data) {
+                for (var i = 0; i < data.length; i++) {
+                    RFIGroups.push(data[i].Title);
+                }
+                GetCurrentUserGroups();
+            });
+        }
+        function FilterFutherAndShowGrid() {
+            $("#loadderdiv").hide();
+            BringOriginatorRows(Results);
+            FinalTable = HeaderTable + BodyTables + "</tbody></table>"
+            $("#ShowAll").hide();
+            $("#ShowAllRFIAnchor").hide();
+            $("#ShowAll").show();
+            $("#ShowAll").html(FinalTable);
+            $('#example').DataTable({ "pageLength": 50 });
+            $("#dropproject").show();
+            GetUsersProjects();
+        }
+
+        var ProjectArray = [];
+        var IsSiteTechnicalManager = 0;
+        var IsDocumentController = 0;
+        var IsDisciplineHead = 0;
+        var DisciplineHeadGroup = "";
+        var DiscplineHeadGroupNameAndPRoject = [];
+
+        function GetUsersProjects() {
+            var ListName = "";
+            var IsFilterRequire = "No";;
+            if (IsSiteTechnicalManager == 1) {
+                ListName = "Site Technical Managers";
+                IsFilterRequire = "Yes";
+            }
+
+            if (IsDocumentController == 1) {
+                ListName = "DocumentsControllers";
+                IsFilterRequire = "Yes";
+
+            }
+
+            if (IsDisciplineHead == 1) {
+                ListName = "Discipline Heads";
+                IsFilterRequire = "Yes";
+            }
+
+            var restURL = "";
+            if (IsSiteTechnicalManager == 1) {
+                restURL = "https://arabtec.sharepoint.com/VDC/_api/web/lists/getbytitle('" + ListName + "')/items?$Select=Title&$filter= ProjectManagerId eq " + CurrentUserId + "'";
+            }
+            if (IsDocumentController == 1) {
+
+                restURL = "https://arabtec.sharepoint.com/VDC/_api/web/lists/getbytitle('" + ListName + "')/items?$Select=Title&$filter=DCName eq  " + CurrentUserId + "'";
+            }
+
+            if (IsDisciplineHead == 1) {
+                $("#dropproject").hide();
+                restURL = "https://arabtec.sharepoint.com/VDC/_api/web/lists/getbytitle('" + ListName + "')/items?$select=Title,Project/Title&$expand=Project&$filter=DHName eq  " + CurrentUserId + "'";
+            }
+            $.ajax({
+                dataType: "json",
+                url: restURL,
+                success: function (data) {
+                    for (var i = 0; i < data.value.length; i++) {
+                        if (IsDisciplineHead == 1)
+                            ProjectArray.push(data.value[i].Project.Title);
+                        else
+                            ProjectArray.push(data.value[i].Title);
+                        DiscplineHeadGroupNameAndPRoject.push(data.value[i].Project.Title + "*" + data.value[i].Title);
+                    }
+                    if (IsFilterRequire == "Yes") {
+                        FilterProjects(ProjectArray, ListName);
+                    } else {
+
+                    }
+                }  //success   
+            });
+        }
+        function FilterProjects(ProjectArray, filtertype) {
+            var table = $('#example').DataTable();
+            table.rows().every(function (rowIdx, tableLoop, rowLoop) {
+                var child = this.data()[7];
+                var projectName = this.data()[4];
+                if (ProjectArray.indexOf(projectName) < 0) {
+                    if (filtertype == "Site Technical Managers") {
+                        $(this.node()).addClass('selected');
+                        var row = table.row(rowIdx);
+                        $(row).addClass('.selected');
+                    } else {
+                        if (filtertype == "Discipline Heads" && child != "Discipline Head") {
+                            $(this.node()).addClass('selected');
+                            var row = table.row(rowIdx);
+                            $(row).addClass('.selected');
+                        }
+
+                        if (filtertype == "DocumentsControllers" && child != "Documents Controller") {
+                            $(this.node()).addClass('selected');
+                            var row = table.row(rowIdx);
+                            $(row).addClass('.selected');
+                        }
+                    }
+                }
+            });
+            var rows = table
+                .rows('.selected')
+                .remove()
+                .draw();
+
+        }
+        var CurrentUserDisPlayName = '';
+        var CurrentUserId = 0;
+        var DHGorupsw = [];
+        var GrpName = '';
+        function GetDisCiplineHeadsGrops() {
+            $pnp.sp.web.lists.getByTitle("Discipline Heads").items.get().then(function (data) {
+                for (var i = 0; i < data.length; i++) {
+                    DHGorupsw.push(data[i].Title);
+                }
+                GetGroupName(DHGorupsw);
+            });
+        }//GetDisCiplineHeadsGrops
+
+        function BringOriginatorRows(Resultss) {
+            for (var i = 0; i < Resultss.length; i++) {
+                var ProName = findById(Projects, Resultss[i].ProjectsId);
+                var crd = moment(Resultss[i].Created).format("DD MM YYYY");
+                var reqdt = moment(Resultss[i].Required_x0020_By_x0020_Date).format("DD MM YYYY");
+                var ClickItem = Results[i].ID.toString();
+                var RFINos = parseFloat(Resultss[i].RFI_x0020__x0023_);
+                RFIReferenceNumber = Resultss[i].IRFI_x0020_Reference;
+                var vert = 0;
+                if (RFIReferenceNumber == null)
+                    RFIReferenceNumber = "Not Genearated";
+                if (Resultss[i].Versions == null) { vert = 0; }
+                else { vert = Resultss[i].Versions };
+                var PendingStatus = "Pending";
+                if (Resultss[i].Stage == "Coordinator")
+                    TL = "Team Lead";
+                else
+                    TL = Resultss[i].Stage;
+                if (Resultss[i].Status == "Closed") {
+                    PendingStatus = "Closed";
+                    BodyTables += "<tr onclick='SendingToClosed(" + ClickItem + ")'><td><a href='#' > " + RFIReferenceNumber + "<a></td><td>" + crd + " </td><td>" + Resultss[i].Revision + "</td><td>" + vert + "</td><td> " + ProName + "</td><td>" + Resultss[i].RFI_x0020_Subject + "</td><td>" + Resultss[i].Group_x0020_Category + "</td><td>" + TL + "</td><td>" + PendingStatus + "</td> </tr>";
+                }
+                else {
+                    BodyTables += "<tr onclick='SendToMain(\"" + ClickItem + "," + ProName.toString() + "\")'><td><a href='#' > " + RFIReferenceNumber + "<a></td><td>" + crd + " </td><td>" + Resultss[i].Revision + "</td><td>" + vert + "</td><td> " + ProName + "</td><td>" + Resultss[i].RFI_x0020_Subject + "</td><td>" + Resultss[i].Group_x0020_Category + "</td><td>" + TL + "</td><td>" + PendingStatus + "</td> </tr>";
+                }
+            }//loop end
+            return BodyTables;
+        }
+
+        function GetGroupName(DHGroups) {
+            var IsDH = 0;
+            $().SPServices({
+                operation: "GetGroupCollectionFromUser",
+                userLoginName: $().SPServices.SPGetCurrentUser(),
+                async: false,
+                completefunc: function (xData, Status) {
+                    DHGroups.forEach(function (element) {
+                        $(xData.responseXML).find("Group[Name$='" + element + "']").each(function () { //find any group ending in '_FIN'						
+                            GrpName = $(this).attr("Name");
+                            IsDH++;
+                        });//                                               
+                    });//foreach                   
+                }
+            });
+        }//GetGroupName        
+        var vert = 0;
+        var DisciplineHeadProject = [];
+        var DisciplineHeadTitleName = [];
+        var GroupCategoryGroup = '';
+        var CurrentUserofThisPage = '';
+        var MultipleOtherGroup = [];
+
+        function GetCurrentUserGroups() {
+            CurrentUserofThisPage = $().SPServices.SPGetCurrentUser();
+            $().SPServices({
+                operation: "GetGroupCollectionFromUser",
+                userLoginName: CurrentUserofThisPage,//$().SPServices.SPGetCurrentUser(),
+                async: false,
+                completefunc: function (xData, Status) {
+                    RFIGroups.forEach(function (element) {
+                        $(xData.responseXML).find("Group[Name$='" + element + "']").each(function () { //find any group ending in '_FIN'
+                            MultipleOtherGroup.push($(this).attr("Name"));
+                            GroupCategory = $(this).attr("Name");
+                            if (GroupCategory.indexOf('-') > 0) {
+                                var Tmp = GroupCategory.split('-');
+                                GroupCategoryGroup = Tmp[0];
+                                GroupCategory = Tmp[1];
+                                if (GroupCategory == "Originator") { $("#btnNewRFI").show(); }
+                                else { $("#btnNewRFI").hide(); }
+                                UserRoles.push(GroupCategory);
+                            }
+                            else {
+                                UserRoles.push(GroupCategory);
+                                if (GroupCategory == "Site Technical Manager")
+                                    IsSiteTechnicalManager = 1;
+                                if (GroupCategory == "Discipline Head")
+                                    IsDisciplineHead = 1;
+                                if (GroupCategory == "Document Controller")
+                                    IsDocumentController = 1;
+                            }
+                        });//
+                    });//foreach
+                    FilterFutherAndShowGrid();
+                }
+            });
+
+        }
+        /* ************************************** Misc Functions ********************************/
+        var thisLoginName = '';
+        function GetUsserProfilesofCurentUser() {
+            var thisUsersValues = $().SPServices.SPGetCurrentUser({
+                fieldNames: ["ID", "Name", "SIP Address"],
+                debug: false
+            });
+            var SIPAddress = thisUsersValues["SIP Address"];
+            var thisuerid = thisUsersValues["ID"];
+            thisLoginName = thisUsersValues["Name"];
+            CurrentUserId = thisuerid;
+
+            $pnp.sp.profiles.myProperties.get().then(function (result) {
+                CurrentUserDisPlayName = result.DisplayName;
+                GetAllProjects();
+            }).catch(function (err) {
+            });
+        }
+
+        function MakeShortSentence(String) {
+            var res = String.substring(1, 8);
+            return res;
+        }
+
+        function getUrlVars() {
+            var vars = [], hash;
+            var hashes = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+            for (var i = 0; i < hashes.length; i++) {
+                hash = hashes[i].split('=');
+                vars.push(hash[0]);
+                vars[hash[0]] = hash[1];
+            }
+            return vars;
+        }
+        function Project(Name, Id) {
+            this.Name = Name;
+            this.Id = Id;
+        }
+
+        function GetAllProjects() {
+            $pnp.sp.web.lists.getByTitle("Projects").items.get().then(function (data) {
+                for (var i = 0; i < data.length; i++) {
+                    ProjectTm = new Project(data[i].Title, data[i].Id);
+                    Projects.push(ProjectTm);
+                }
+                GetAllRFI();
+
+            });
+        }
+        function findById(source, id) {
+            for (var i = 0; i < source.length; i++) {
+                if (source[i].Id === id) {
+                    return source[i].Name;
+                }
+            }
+            throw "Couldn't find object with id: " + id;
+        }
+        function AddNnewRFISiteBased() {
+            var Guid = GenRandom();
+            window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestRFI.aspx?InitialTabID=Ribbon.Read&Guid=" + Guid + "&WFType=SiteBased";
+        }
+
+        function ShowAllRFI() {
+            if (refreshCounter == 0) {
+                window.location = "https://arabtec.sharepoint.com/VDC/?type=1";
+                refreshCounter++;
+            }
+        }
+        function AddNewRFi() {
+            var Guid = GenRandom();
+            window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestRFI.aspx?InitialTabID=Ribbon.Read&Guid=" + Guid + "&WFType=Normal";
+        }
+        function ShowPendingRFI() {
+            $("#ShowAll").hide();
+            $("#Pending").show();
+        }
+        function GenRandom() {
+            return 'xx6xxx-x3xyyyx-4x-yxxy5'.replace(/[xy]/g,
+                function (c) {
+                    var r = Math.random() * 16 | 0,
+                        v = c == 'x' ? r : (r & 0x3 | 0x8);
+                    return v.toString(16);
+                }).toUpperCase();
+        }
+        /* Misc End */
+        function GetMultipleModalOption() {
+            var temphtml = "";
+            for (var i = 0; i < UserRoles.length; i++) {
+                temphtml += "<input type=\"radio\" name='multipleuserradiobuttonshome' value=\"" + UserRoles[i] + "\" />" + UserRoles[i] + "<br>";
+            }
+            $(".modal-body").html(temphtml);
+            $('#exampleModal').modal('show');
+        }
+        function SendToPageFromOriginator3(ClickItem) {
+            if (UserRoles.length > 1) {
+                GetMultipleModalOption();
+            }
+        }
+        function SendingToClosed(ClickItem) {
+            window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + ClickItem + "&Type=Closed";
+        }
+        //Get Filters Values
+        function GetFilterGrid(stringProjectName) {
+            FinalParsingRows(stringProjectName);
+
+        }
+
+        function SendToMain(ITem) {
+
+            CurrentClickItem = ITem.toString().split(',')[0];
+            var ClickProjectName = ITem.toString().split(',')[1];
+            var CurrentRole = "";
+            if (UserRoles.length > 1) {
+                GetMultipleModalOption();
+            }
+            else {
+                CurrentRole = UserRoles[0];
+                FinalRoute(CurrentClickItem, CurrentRole, ClickProjectName);
+            }
+
+        }
+        var CurrentClickItem = "";
+        //final Parsing Rows
+        var IsUserisDisciplineHead = "No";
+        var finalCurrentUserGroup = "No";
+        function FinalParsingRows(ProjectNames) {
+            BindTableAgain(Results);
+            var table = $('#example').DataTable();
+            table.rows().every(function (rowIdx, tableLoop, rowLoop) {
+                var child = this.data()[7];
+                var projectName = this.data()[4];
+
+                if (projectName != ProjectNames) {
+                    $(this.node()).addClass('selected');
+                    var row = table.row(rowIdx);
+                    $(row).addClass('.selected');
+                }
+            });
+            var rows = table
+                .rows('.selected')
+                .remove()
+                .draw();
+        }
+
+        function RouteMultiplrRoleUSer() {
+            var selected = [];
+            var currentrolw = $("input[name='multipleuserradiobuttonshome']:checked").val();
+            FinalRoute(CurrentClickItem, currentrolw);
+
+        }
+
+        function FinalRoute(SelectedItem, GroupName, ClickProjectName) {
+            switch (GroupName) {
+                case "Originator":
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + SelectedItem + "&Type=Org&WFType=Normal";
+                    break;
+
+                case "Functional Manager":
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + SelectedItem + "&Type=Project Manager&WFType=Normal";
+                    break;
+
+                case "TL":
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + SelectedItem + "&Type=Coordinator&WFType=Normal";
+                    break;
+
+                case "Site Technical Manager":
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + SelectedItem + "&Type=Project Manager&WFType=Normal"
+                    break;
+
+                case "Discipline Head":
+                    var GroupNameToGo = '';
+                    for (var i = 0; i < DiscplineHeadGroupNameAndPRoject.length; i++) {
+                        var tmp = DiscplineHeadGroupNameAndPRoject[i].split('*');
+                        var ArProect = tmp[0];
+                        var UsrGrpName = tmp[1];
+                        if (ArProect == ClickProjectName) {
+                            GroupNameToGo = UsrGrpName;
+                        }
+                    }
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RFIDisplayForm.aspx?ID=" + SelectedItem + "&WFType=Normal&GroupType=" + GroupNameToGo;
+                    break;
+
+                case "Document Controller":
+                    window.location = "https://arabtec.sharepoint.com/VDC/Lists/RFI/RequestEditForm.aspx?ID=" + ClickItem + "&Type=DC&WFType=Normal";
+                    break;
+            }
+        }
+
+        function BindTableAgain(Results) {
+            var table = $('#example').DataTable();
+            var rows = table
+                .rows()
+                .remove()
+                .draw();
+            BodyTables = "";
+            for (var i = 0; i < Results.length; i++) {
+                var ProName = findById(Projects, Results[i].ProjectsId);
+                var crd = moment(Results[i].Created).format("DD MMMM YY");
+                var reqdt = moment(Results[i].Required_x0020_By_x0020_Date).format("DD MM YYYY");
+                if (Results[i].Versions == null) vert = 0;
+                else vert = Results[i].Versions;
+                var ClickItem = Results[i].ID;
+                RFIReferenceNumber = Results[i].IRFI_x0020_Reference;
+
+                if (Results[i].Stage == "Coordinator")
+                    TL = "Team Lead";
+                else
+                    TL = Results[i].Stage;
+                var ActualStauts = "";
+
+                if (Results[i].Status == "Closed") {
+                    PendingStatus = "Closed";
+                    BodyTables += "<tr onclick='SendingToClosed(" + ClickItem + ")'><td><a href='#' > " + RFIReferenceNumber + "<a></td><td>" + crd + " </td><td>" + Results[i].Revision + "</td><td>" + vert + "</td><td> " + ProName + "</td><td>" + Results[i].RFI_x0020_Subject + "</td><td>" + Results[i].Group_x0020_Category + "</td><td>" + TL + "</td><td>" + PendingStatus + "</td> </tr>";
+                }
+                else {
+                    BodyTables += "<tr onclick='SendToMain(\"" + ClickItem + "," + ProName.toString() + "\")'><td><a href='#' > " + RFIReferenceNumber + "<a></td><td>" + crd + " </td><td>" + Results[i].Revision + "</td><td>" + vert + "</td><td> " + ProName + "</td><td>" + Results[i].RFI_x0020_Subject + "</td><td>" + Results[i].Group_x0020_Category + "</td><td>" + TL + "</td><td>" + PendingStatus + "</td> </tr>";
+                }
+            }//loop end
+            FinalTable = HeaderTable + BodyTables + "</tbody></table>"
+            $("#ShowAll").hide();
+            $("#ShowAllRFIAnchor").hide();
+            $("#ShowAll").show();
+            $("#btnNewRFI").hide();
+            $("#ShowAll").html(FinalTable);
+            $('#example').DataTable({ "pageLength": 50 });
+        }
+    </script>
+
+    <body>
+        <div class="container">
+
+            <div class="row">
+                <div class="col-sm-12" style="float:left">
+                    <a href="#" onclick="AddNewRFi()" id="btnNewRFI" style="display:none">
+                        <button type="button" class="btn2 btn-secondary">New</button>
+                    </a>
+                    <select id="dropproject" class="mycls">
+                        <option value="volvo">Select P.r.o.j.e.c.t</option>
+                        <option value="volvo">1296 Damac Villa Phase 05 and 06</option>
+                        <option value="saab">Villa Nova</option>
+
+                    </select>
+                </div>
+
+            </div>
+        </div>
+
+        <div id="loadderdiv">
+            <img src="https://arabtec.sharepoint.com/VDC/SiteAssets/loading.gif" />
+        </div>
+        <div id="ShowAll">
+        </div>
+        <button type="button" class="btn btn-primary" data-toggle="modal" onclick="exampleModal()" style="display:none">
+            Launch demo modal
+        </button>
+
+
+        <!-- Modal -->
+        <div class="modal fade" id="exampleModal" tabindex="-1" role="dialog" aria-labelledby="exampleModalLabel" aria-hidden="true">
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="exampleModalLabel">Choose the Role - </h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn btn-warning" data-dismiss="modal">Close</button>
+
+                        <input type="button" class="btn btn-primary" onclick="RouteMultiplrRoleUSer()" value="Submit" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Modal -->
+
+
+    </body>
+    <style>
+        .dataTables_filter {
+            float: right;
+        }
+
+        .topannouncements {
+            display: none!important;
+        }
+
+        .btn2 {
+            display: inline-block;
+            padding: 7px 36px;
+            margin-bottom: 0;
+            font-size: 14px;
+            font-weight: normal;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            -ms-touch-action: manipulation;
+            cursor: pointer;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            color: #B00404;
+            margin: 10px;
+        }
+
+        .odd {
+            background-color: #D5F1FF;
+            color: #008b8b;
+        }
+
+        td th {
+            height: 30px;
+            min-width: 100px;
+        }
+
+        thead a {
+            color: white !important;
+        }
+
+
+        thead {
+            background-color: #B00404;
+            color: white !important;
+            height: 30px;
+        }
+
+
+        .ParagraphJustify {
+            white-space: normal !important;
+            text-align: justify;
+            width: 100px;
+        }
+
+
+
+
+        .mycls {
+            padding: 15px;
+            margin: 0;
+            -webkit-border-radius: 4px;
+            -moz-border-radius: 4px;
+            border-radius: 4px;
+            -webkit-box-shadow: 0 3px 0 #ccc, 0 -1px #fff inset;
+            -moz-box-shadow: 0 3px 0 #ccc, 0 -1px #fff inset;
+            box-shadow: 0 3px 0 #ccc, 0 -1px #fff inset;
+            background: #f8f8f8;
+
+            border: none;
+            outline: none;
+            display: inline-block;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            color: black!important;
+            font-size: 15px;
+        }
+    </style>
+
+</html>
